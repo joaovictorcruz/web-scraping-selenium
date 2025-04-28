@@ -3,13 +3,14 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 import time
 from datetime import datetime
 import json
 
 chrome_options = Options()
 chrome_options.add_argument("--disable-notifications")
-chrome_options.add_argument("--disable-popup-blocking")  # Desativa bloqueio de pop-ups
+chrome_options.add_argument("--disable-popup-blocking")
 
 navegador = webdriver.Chrome(options=chrome_options)
 navegador.maximize_window()
@@ -20,133 +21,204 @@ try:
     consent_button = WebDriverWait(navegador, 10).until(
         EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Aceitar')]"))
     )
+    time.sleep(1.5)
     consent_button.click()
-    time.sleep(2)  
-except:
-    print("Não foi necessário aceitar os cookies")
+    time.sleep(2)
+except TimeoutException:
+    print("Não foi necessário aceitar os cookies.")
 
 ida = WebDriverWait(navegador, 20).until(
     EC.presence_of_element_located((By.ID, "inp_flightOrigin_1"))
 )
 ida.click()
-time.sleep(1)  
+time.sleep(1)
 
 guarulhos_button = WebDriverWait(navegador, 20).until(
     EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'high') and contains(., 'Guarulhos')]"))
 )
 guarulhos_button.click()
-time.sleep(2)  
+time.sleep(2)
 
 volta = WebDriverWait(navegador, 20).until(
     EC.presence_of_element_located((By.ID, "inp_flightDestination_1"))
 )
 volta.click()
-time.sleep(1)  
-
+time.sleep(1)
 volta.send_keys("Miami")
-time.sleep(2)  
+time.sleep(2)
 
 miami_button = WebDriverWait(navegador, 20).until(
-    EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'high') and contains(., 'Miami')]"))
+    EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'high') and contains(., 'Miami, Estados Unidos')]"))
 )
 miami_button.click()
-time.sleep(2)  
+time.sleep(2)
 
 ida_e_volta_button = WebDriverWait(navegador, 20).until(
     EC.element_to_be_clickable((By.ID, "drop_fligthType"))
 )
 ida_e_volta_button.click()
-time.sleep(1)  
+time.sleep(1)
 
 somente_ida_button = WebDriverWait(navegador, 20).until(
     EC.element_to_be_clickable((By.ID, "opt_oneWay"))
 )
 somente_ida_button.click()
-time.sleep(1)  
-
-campo_data = WebDriverWait(navegador, 20).until(
-    EC.presence_of_element_located((By.ID, "inp_flightDate_1"))
-)
-
-campo_data.click()
-time.sleep(2)
-
-hoje = datetime.now()
-data_formatada = hoje.strftime('%d/%m/%Y')
-
-campo_data.clear()
-campo_data.send_keys(data_formatada)
 time.sleep(1)
 
-buscar = WebDriverWait(navegador, 20).until(
-    EC.element_to_be_clickable((By.XPATH, '//button[@data-testid="btn-flight-submit"]'))
+campo_data_ida = WebDriverWait(navegador, 20).until(
+    EC.element_to_be_clickable((By.ID, "startDateId"))
 )
-buscar.click()
+campo_data_ida.click()
+time.sleep(2)
 
-WebDriverWait(navegador, 30).until(
-    EC.presence_of_element_located((By.CLASS_NAME, "flight-list"))
+hoje = datetime.now().day
+mes_atual = datetime.now().month
+ano_atual = datetime.now().year
+
+id_data_atual = f"date_{hoje}{mes_atual}{ano_atual}"
+print(f"ID da data de hoje: {id_data_atual}")
+
+td_data_atual = WebDriverWait(navegador, 20).until(
+    EC.presence_of_element_located((By.XPATH, f"//td/span[@id='{id_data_atual}']/.."))
 )
+td_data_atual.click()
+time.sleep(1)
+
+botao_confirmar = WebDriverWait(navegador, 20).until(
+    EC.element_to_be_clickable((By.ID, "btn_confirmCalendar"))
+)
+
+if "disabled" not in botao_confirmar.get_attribute("class"):
+    botao_confirmar.click()
+    print("Data confirmada!")
+else:
+    print("O botão 'Confirmar' ainda está desabilitado.")
+
+time.sleep(2)
+
+botao_buscar = WebDriverWait(navegador, 20).until(
+    EC.element_to_be_clickable((By.ID, "btn_search"))
+)
+botao_buscar.click()
+time.sleep(1.5)
+
+modal_content = WebDriverWait(navegador, 20).until(
+    EC.visibility_of_element_located((By.CLASS_NAME, "modal-content"))
+)
+
+botao_seguinte = WebDriverWait(navegador, 20).until(
+    EC.element_to_be_clickable((By.ID, "btn_sameDayInternational"))
+)
+botao_seguinte.click()
 time.sleep(5)
 
-# Clicar em "Mostrar mais passagens" até não ter mais
-while True:
-    try:
-        botao_mostrar_mais = WebDriverWait(navegador, 5).until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Mostrar mais passagens')]"))
-        )
-        navegador.execute_script("arguments[0].click();", botao_mostrar_mais)
-        time.sleep(2)
-    except:
-        break
+# --- Página de voos ---
+dias_verificados = 0
+max_dias = 10
+dia_base = hoje
 
-# Coletar todos os voos da página
-voos = navegador.find_elements(By.CLASS_NAME, "flight-card-container")
+lista_voos = []
 
-dados_voos = []
+while dias_verificados < max_dias:
+    time.sleep(2)
 
-for voo in voos:
-    try:
-        empresa = voo.find_element(By.CLASS_NAME, "airline-name").text
-    except:
-        empresa = None
+    not_found_elements = navegador.find_elements(By.CLASS_NAME, "select-flight-not-found-card")
 
-    try:
-        classe = voo.find_element(By.CLASS_NAME, "flight-class").text
-    except:
-        classe = None
+    if not_found_elements:
+        print(f"Dia {dias_verificados + 1}: Nenhum voo encontrado, tentando próximo dia...")
 
-    try:
-        valor = voo.find_element(By.CLASS_NAME, "money-amount").text
-    except:
-        valor = None
+        try:
+            botao_calendario = WebDriverWait(navegador, 20).until(
+                EC.element_to_be_clickable((By.ID, "SelectFlightToolbar-button-calender-ida"))
+            )
+            botao_calendario.click()
+            time.sleep(2)
 
-    try:
-        duracao = voo.find_element(By.CLASS_NAME, "flight-duration").text
-    except:
-        duracao = None
+            dia_procurar = dia_base + dias_verificados + 1
+            id_dia = f"day-{dia_procurar}"
 
-    try:
-        horario_saida = voo.find_elements(By.CLASS_NAME, "time")[0].text
-    except:
-        horario_saida = None
+            proximo_dia_elemento = WebDriverWait(navegador, 20).until(
+                EC.element_to_be_clickable((By.ID, id_dia))
+            )
+            proximo_dia_elemento.click()
+            print(f"Selecionado novo dia: {dia_procurar}/{mes_atual}/{ano_atual}")
 
-    try:
-        horario_chegada = voo.find_elements(By.CLASS_NAME, "time")[1].text
-    except:
-        horario_chegada = None
+            botao_confirmar_nova_data = WebDriverWait(navegador, 20).until(
+                EC.element_to_be_clickable((By.ID, "SelectFlightCalendar-search-button"))
+            )
+            botao_confirmar_nova_data.click()
+            time.sleep(5)
 
-    dados_voos.append({
-        "Empresa": empresa,
-        "Classe": classe,
-        "Valor": valor,
-        "Duração": duracao,
-        "Horário de Saída": horario_saida,
-        "Horário de Chegada": horario_chegada
-    })
+        except TimeoutException:
+            print(f"Não foi possível selecionar o dia {dia_procurar}. Tentando seguir...")
+            break
 
-print(f"Total de voos capturados: {len(dados_voos)}")
+    else:
+        print(f"Dia {dias_verificados + 1}: Voos disponíveis, capturando...")
 
-with open("voos_gru_mia.json", "w", encoding="utf-8") as f:
-    json.dump(dados_voos, f, indent=4, ensure_ascii=False)
+        try:
+            botao_mais_passagens = WebDriverWait(navegador, 5).until(
+                EC.element_to_be_clickable((By.ID, "SelectFlightList-ida-more"))
+            )
+            botao_mais_passagens.click()
+            print("Botão 'Mostrar mais passagens' clicado!")
+            time.sleep(3)
+        except TimeoutException:
+            print("Botão 'Mostrar mais passagens' não encontrado.")
 
+        voos = navegador.find_elements(By.CLASS_NAME, "header")
+        print(f"Encontrados {len(voos)} voos.")
+
+        for idx, voo in enumerate(voos, start=1):
+            try:
+                companhia = voo.find_elements(By.CLASS_NAME, "company")
+                companhia = companhia[0].text if companhia else "Não informado"
+
+                classe = voo.find_elements(By.CLASS_NAME, "seat")
+                classe = classe[0].text if classe else "Não informado"
+
+                horarios = voo.find_elements(By.CLASS_NAME, "iata-code")
+                horario_partida = horarios[0].text if len(horarios) > 0 else "Não informado"
+                horario_chegada = horarios[1].text if len(horarios) > 1 else "Não informado"
+
+                duracao = voo.find_elements(By.CLASS_NAME, "scale-duration__time")
+                duracao = duracao[0].text if duracao else "Não informado"
+
+                preco = voo.find_elements(By.CLASS_NAME, "miles")
+                preco = preco[0].text if preco else "Não informado"
+
+                print(f"\nVoo {idx}: {companhia} | {classe} | {horario_partida} -> {horario_chegada} | {duracao} | {preco}")
+
+                lista_voos.append({
+                    "dia_pesquisado": f"{dia_base + dias_verificados}/{mes_atual}/{ano_atual}",
+                    "companhia": companhia,
+                    "classe": classe,
+                    "horario_partida": horario_partida,
+                    "horario_chegada": horario_chegada,
+                    "duracao_voo": duracao,
+                    "preco": preco
+                })
+
+            except Exception as e:
+                print(f"Erro ao capturar voo {idx}: {e}")
+                continue
+
+        try:
+            botao_proximo_dia = WebDriverWait(navegador, 20).until(
+                EC.element_to_be_clickable((By.ID, "SelectFlightToolbar-button-next-day-ida"))
+            )
+            botao_proximo_dia.click()
+            print("Avançando para o próximo dia...")
+            time.sleep(15)
+        except TimeoutException:
+            print("Não foi possível clicar para próximo dia.")
+            break
+
+    dias_verificados += 1
+
+with open("voos_encontrados.json", "w", encoding="utf-8") as f:
+    json.dump(lista_voos, f, ensure_ascii=False, indent=4)
+
+print("Finalizado: 10 dias verificados e voos salvos no arquivo 'voos_encontrados.json'.")
+time.sleep(5)
 navegador.quit()
