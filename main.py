@@ -1,4 +1,4 @@
-from selenium import webdriver
+from selenium import webdriver 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
@@ -156,15 +156,18 @@ while dias_verificados < max_dias:
     else:
         print(f"Dia {dias_verificados + 1}: Voos disponíveis, capturando...")
 
+        # --- Novo código para clicar até acabar o botão ---
+    while True:
         try:
             botao_mais_passagens = WebDriverWait(navegador, 5).until(
                 EC.element_to_be_clickable((By.ID, "SelectFlightList-ida-more"))
             )
             botao_mais_passagens.click()
             print("Botão 'Mostrar mais passagens' clicado!")
-            time.sleep(3)
+            time.sleep(3)  # Espera carregar mais voos
         except TimeoutException:
-            print("Botão 'Mostrar mais passagens' não encontrado.")
+            print("Nenhum botão 'Mostrar mais passagens' encontrado. Todos os voos carregados.")
+            break
 
         voos = navegador.find_elements(By.CLASS_NAME, "header")
         print(f"Encontrados {len(voos)} voos.")
