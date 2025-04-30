@@ -118,7 +118,7 @@ while dias_verificados < max_dias:
     else:
         print(f"Dia {dias_verificados + 1}: Voos disponíveis, capturando...")
 
-    # carregar todos os voos 
+    # Carregar todos os voos disponíveis
     while True:
         try:
             botao_mais_passagens = WebDriverWait(navegador, 5).until(
